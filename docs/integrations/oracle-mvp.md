@@ -135,6 +135,14 @@ CLOB serialization for checksum validation; the driver's default auto-decoding
 would otherwise discard it. This local result does not certify a cloud service
 cutover, model quality, the original UI or a full upstream DAL port.
 
+The subsequent cloud cutover passed all 19 Oracle/boundary tests before and after
+PostgreSQL was stopped. PostgreSQL is disabled, port 5432 is closed, and its
+runtime settings and service dependency are removed. The running private API
+passed local structured inference, 384-dimensional embeddings, Oracle semantic
+search, unauthorized/stale-write rejection and persisted readback after a real
+service restart. This verifies the isolated API runtime; original UI integration
+and model-quality acceptance remain outside this result.
+
 The original frontend also passed a build, ESLint (one existing warning), and
 Prettier with native checkout line endings accepted. Original backend OpenAPI
 generation and migration/schema comparison passed. A broader ARM/PG16 regression
