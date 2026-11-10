@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES.
+# All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+[Unit]
+Description=Experimental Oracle-only Auto-Ontology API
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=auto-ontology
+Group=auto-ontology
+WorkingDirectory=/opt/auto-ontology
+EnvironmentFile=/etc/auto-ontology/oracle.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=OMP_NUM_THREADS=1
+ExecStart=/opt/auto-ontology/.venv/bin/uvicorn auto_ontology.oracle_mvp.api:create_app --factory --host 127.0.0.1 --port 3011 --workers 1 --no-access-log
+StateDirectory=auto-ontology
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+# Operator MUST supply a reviewed drop-in allowing only the selected Oracle
+# endpoint addresses. Until then Oracle connections deliberately fail closed.
+MemoryHigh=1400M
+MemoryMax=1800M
+CPUQuota=35%
+TasksMax=96
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

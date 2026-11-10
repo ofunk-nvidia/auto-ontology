@@ -1,0 +1,13 @@
+{
+  "SPDX-FileCopyrightText": "Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.",
+  "SPDX-License-Identifier": "Apache-2.0",
+  "backend": "oracle",
+  "alwaysFreeOnly": true,
+  "databaseName": "SYNTHETIC_FREE_DB",
+  "user": "AO_MVP",
+  "dsn": "synthetic_low",
+  "passwordFile": "/var/lib/auto-ontology/oracle/password",
+  "walletDirectory": "/var/lib/auto-ontology/oracle/wallet",
+  "walletPasswordFile": "/var/lib/auto-ontology/oracle/wallet-password",
+  "dimensions": 384
+}

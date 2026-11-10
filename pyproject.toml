@@ -67,6 +67,13 @@ dependencies = [
 
 [project.optional-dependencies]
 kumo = ["kumo-relational-client[relational]>=1.0.0,<2"]
+oracle = [
+    "oracledb>=3.4.2,<4",
+]
+rdf = [
+    "pyshacl>=0.40,<1",
+    "rdflib>=7.5,<8",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -125,3 +132,6 @@ pythonpath = ["."]
 # of this suite: pythonpath = ["."] would otherwise make the mcp/ directory
 # shadow the installed mcp SDK as a namespace package.
 addopts = "--import-mode=importlib --ignore=mcp"
+markers = [
+    "oracle_live: requires a separately provisioned Oracle database and explicit write-test opt-in",
+]

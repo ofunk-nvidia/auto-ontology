@@ -21,6 +21,17 @@ on:
       - '.github/workflows/ci-python.yml'
 
 jobs:
+  oracle_boundaries:
+    name: Oracle RDF boundaries (no database or hosted inference)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - name: Install the optional Oracle and RDF integrations
+        run: uv sync --locked --extra oracle --extra rdf
+      - name: Check isolated Oracle boundaries
+        run: uv run --no-sync pytest auto_ontology/oracle_mvp/tests/test_boundaries.py auto_ontology/oracle_mvp/tests/test_model_selection.py auto_ontology/oracle_rdf/tests -q
+
   lint_and_format:
     name: Ruff Check & Format
     runs-on: ubuntu-latest
@@ -141,7 +152,7 @@ jobs:
       # kumo-relational-engine is already in
       # the base tree, so this costs a few seconds and needs no index access.
       - name: Install dependencies
-        run: uv sync --locked --extra kumo
+        run: uv sync --locked --extra kumo --extra rdf
 
       # Everything below is the documented local setup from
       # dev_tools/fixtures/sql/README.md, in the same order. No credentials:
@@ -170,7 +181,9 @@ jobs:
       # `-p no:randomly` is not set and no `-x`: the point of this job is the
       # whole picture, including how many of the fixture-backed tests ran.
       - name: Run the test suite
-        run: uv run --no-sync pytest auto_ontology dev_tools -q --durations=10
+        # Oracle live acceptance uses a private, separately provisioned free DB.
+        # Exclude only that explicit marker; retain the existing fixture skip guard.
+        run: uv run --no-sync pytest auto_ontology dev_tools -m 'not oracle_live' -q --durations=10
 
       # A skip guard naming the wrong dependency turns a suite off silently and
       # still reports green -- which is how the golden replay and the live
@@ -178,14 +191,14 @@ jobs:
       # (AUTO_ONTOLOGY_LIVE_DATABRICKS / AUTO_ONTOLOGY_LIVE_MYSQL) may skip here.
       - name: Fail if the fixture-backed tests silently skipped
         run: |
-          skipped=$(uv run --no-sync pytest auto_ontology dev_tools -q -rs 2>/dev/null \
+          skipped=$(uv run --no-sync pytest auto_ontology dev_tools -m 'not oracle_live' -q -rs 2>/dev/null \
             | grep -c '^SKIPPED' || true)
           echo "skipped: $skipped"
           if [ "$skipped" -gt 2 ]; then
             echo "::error::$skipped tests skipped; expected at most 2 (live" \
                  "Databricks and MySQL). A fixture is probably unreachable, so" \
                  "this run proved less than it appears to."
-            uv run --no-sync pytest auto_ontology dev_tools -q -rs 2>/dev/null \
+            uv run --no-sync pytest auto_ontology dev_tools -m 'not oracle_live' -q -rs 2>/dev/null \
               | grep '^SKIPPED' || true
             exit 1
           fi
