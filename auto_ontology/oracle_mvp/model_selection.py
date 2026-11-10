@@ -211,9 +211,11 @@ class ModelSelection:
         local: LocalInference,
         profile: dict[str, Any] | None = None,
         connection: Any = None,
+        profile_path: Path | None = None,
     ) -> None:
         self.store, self.local = store, local
         self.profile = profile or {}
+        self.profile_path = profile_path
         self.connection = connection or HubConnection(self.profile)
         self.lock = threading.RLock()
         self.cached_models: list[dict[str, Any]] | None = None
@@ -227,7 +229,22 @@ class ModelSelection:
             raise ValueError(
                 "Only the reviewed NVIDIA Inference Hub endpoint is allowed"
             )
-        return cls(store, local, profile)
+        return cls(store, local, profile, profile_path=Path(path) if path else None)
+
+    def refresh_profile(self) -> None:
+        """Observe an atomic operator credential change without restarting clients."""
+        if self.profile_path is None:
+            return
+        with self.lock:
+            updated = json.loads(private_text(self.profile_path))
+            if updated.get("baseUrl", BASE_URL) != BASE_URL:
+                raise ModelUnavailable("Nur der freigegebene NVIDIA-Endpunkt ist erlaubt.")
+            if updated != self.profile:
+                self.profile = updated
+                if isinstance(self.connection, HubConnection):
+                    self.connection.profile = updated
+                self.cached_models = None
+                self.cached_at = 0.0
 
     def permitted(self, model: str | None = None) -> bool:
         return bool(
@@ -239,12 +256,14 @@ class ModelSelection:
         )
 
     def operator(self, actor: str) -> None:
+        self.refresh_profile()
         if actor not in self.profile.get("operatorActors", []):
             raise PermissionError(
                 "Modellauswahl ist nur für freigegebene Betreiber erlaubt."
             )
 
     def identity(self) -> dict[str, Any]:
+        self.refresh_profile()
         current = self.store.get(SELECTION_ID)
         if current:
             value = current["document"]
@@ -288,6 +307,7 @@ class ModelSelection:
         return None
 
     def catalog(self, actor: str) -> dict[str, Any]:
+        self.refresh_profile()
         cards = []
         message = "NVIDIA-Zugang noch nicht eingerichtet."
         state = "not-configured"
@@ -355,6 +375,7 @@ class ModelSelection:
         )
 
     def _allowed(self, model: str) -> None:
+        self.refresh_profile()
         if not self.permitted(model):
             raise ModelUnavailable(
                 "Externe Modellaufrufe warten auf Use Request und belegte Kostenfreiheit."

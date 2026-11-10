@@ -101,6 +101,35 @@ def manager():
     return ModelSelection(Store(), MagicMock(), profile, Hub())
 
 
+def test_atomic_profile_rotation_invalidates_catalog_and_fit_without_restart(tmp_path):
+    app = manager()
+    app.test(MODEL, ACTOR)
+    assert app._fresh_test(MODEL)
+    path = tmp_path / "profile.json"
+    updated = dict(app.profile, id="rotated", costMode="blocked", costEvidence="", freeModelIds=[])
+    path.write_text(json.dumps(updated))
+    path.chmod(0o600)
+    app.profile_path = path
+    app.refresh_profile()
+    assert app.profile["id"] == "rotated"
+    assert app.cached_models is None
+    assert app._fresh_test(MODEL) is None
+    assert not app.permitted(MODEL)
+    with pytest.raises(ModelUnavailable):
+        app._allowed(MODEL)
+
+
+def test_live_profile_cannot_change_the_fixed_provider_endpoint(tmp_path):
+    app = manager()
+    path = tmp_path / "profile.json"
+    path.write_text(json.dumps(dict(app.profile, baseUrl="https://example.invalid/v1")))
+    path.chmod(0o600)
+    app.profile_path = path
+    with pytest.raises(ModelUnavailable):
+        app.catalog(ACTOR)
+    assert app.profile.get("baseUrl") != "https://example.invalid/v1"
+
+
 def test_catalog_excludes_unknown_and_non_text_models_without_claiming_a_live_test():
     app = manager()
     result = app.catalog(ACTOR)
