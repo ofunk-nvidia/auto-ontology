@@ -22,15 +22,15 @@ on:
 
 jobs:
   oracle_boundaries:
-    name: Oracle MVP boundaries (no database or hosted inference)
+    name: Oracle RDF boundaries (no database or hosted inference)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
-      - name: Install the optional Oracle driver
-        run: uv sync --locked --extra oracle
+      - name: Install the optional Oracle and RDF integrations
+        run: uv sync --locked --extra oracle --extra rdf
       - name: Check isolated Oracle boundaries
-        run: uv run --no-sync pytest auto_ontology/oracle_mvp/tests/test_boundaries.py -q
+        run: uv run --no-sync pytest auto_ontology/oracle_mvp/tests/test_boundaries.py auto_ontology/oracle_rdf/tests -q
 
   lint_and_format:
     name: Ruff Check & Format
@@ -152,7 +152,7 @@ jobs:
       # kumo-relational-engine is already in
       # the base tree, so this costs a few seconds and needs no index access.
       - name: Install dependencies
-        run: uv sync --locked --extra kumo
+        run: uv sync --locked --extra kumo --extra rdf
 
       # Everything below is the documented local setup from
       # dev_tools/fixtures/sql/README.md, in the same order. No credentials:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+import asyncio
 import hmac
 import os
 from pathlib import Path
@@ -49,6 +50,7 @@ def create_app(
     store: OracleStore | None = None,
     inference: LocalInference | None = None,
     gateway_key: str | None = None,
+    rdf_workbench: Any | None = None,
 ) -> FastAPI:
     """Create only the supported Oracle vertical slice, with no Postgres imports."""
     if store is None:
@@ -65,14 +67,55 @@ def create_app(
     if len(gateway_key) < 32:
         raise ValueError("The private gateway key is too short")
 
+    source_config = os.environ.get("AUTO_ONTOLOGY_RDF_SOURCE_CONFIG")
+    if rdf_workbench is None and source_config:
+        from auto_ontology.oracle_rdf.source import OracleRdfSource, SourceSettings
+        from auto_ontology.oracle_rdf.workbench import RdfWorkbench
+
+        rdf_workbench = RdfWorkbench(
+            OracleRdfSource(
+                SourceSettings.from_file(
+                    Path(source_config), store.settings.database_name
+                )
+            ),
+            store,
+            runtime,
+        )
+
+    async def autonomous_analysis() -> None:
+        while True:
+            try:
+                await asyncio.to_thread(rdf_workbench.analyze)
+            except Exception:
+                # Request endpoints still expose failure status. Never log source
+                # contents/credentials or start interactive provider sign-in.
+                pass
+            await asyncio.sleep(300)
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        task = (
+            asyncio.create_task(autonomous_analysis())
+            if rdf_workbench is not None
+            else None
+        )
         try:
             yield
         finally:
+            if task is not None:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                rdf_workbench.close()
             store.close()
 
     app = FastAPI(title="Auto-Ontology Oracle persistence MVP", lifespan=lifespan)
+    if rdf_workbench is not None:
+        from auto_ontology.oracle_rdf.router import router_for
+
+        app.include_router(router_for(rdf_workbench))
 
     @app.middleware("http")
     async def trusted_gateway(request: Request, call_next: Any) -> Any:

@@ -70,6 +70,10 @@ kumo = ["kumo-relational-client[relational]>=1.0.0,<2"]
 oracle = [
     "oracledb>=3.4.2,<4",
 ]
+rdf = [
+    "pyshacl>=0.40,<1",
+    "rdflib>=7.5,<8",
+]
 
 [build-system]
 requires = ["hatchling"]
