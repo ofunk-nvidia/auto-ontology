@@ -11,6 +11,7 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from auto_ontology.oracle_rdf.workbench import RdfWorkbench
+from auto_ontology.oracle_mvp.model_selection import ModelSelection
 
 
 class ProposalInput(BaseModel):
@@ -27,7 +28,18 @@ class DecisionInput(BaseModel):
     reason: str = Field(min_length=1, max_length=2000)
 
 
-def router_for(workbench: RdfWorkbench) -> APIRouter:
+class ModelInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    model: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_./:-]{0,199}$")
+
+
+class ModelSelectionInput(ModelInput):
+    revision: int = Field(ge=0)
+
+
+def router_for(
+    workbench: RdfWorkbench, models: ModelSelection | None = None
+) -> APIRouter:
     router = APIRouter(prefix="/api/rdf")
 
     def actor(value: str | None) -> str:
@@ -35,6 +47,29 @@ def router_for(workbench: RdfWorkbench) -> APIRouter:
             return str(uuid.UUID(value or ""))
         except ValueError:
             raise HTTPException(403, "Verified Microsoft 365 actor required") from None
+
+    if models is not None:
+
+        @router.get("/models")
+        def model_catalog(
+            x_m365_actor: str | None = Header(default=None),
+        ) -> dict[str, Any]:
+            """List documented role candidates actually available to this NVIDIA key."""
+            return models.catalog(actor(x_m365_actor))
+
+        @router.post("/models/test")
+        def test_model(
+            body: ModelInput, x_m365_actor: str | None = Header(default=None)
+        ) -> dict[str, Any]:
+            """Run bounded synthetic capability checks only under explicit operator policy."""
+            return models.test(body.model, actor(x_m365_actor))
+
+        @router.post("/models/select")
+        def select_model(
+            body: ModelSelectionInput, x_m365_actor: str | None = Header(default=None)
+        ) -> dict[str, Any]:
+            """Select a tested model with optimistic revision and an operator identity."""
+            return models.select(body.model, body.revision, actor(x_m365_actor))
 
     @router.get("/source")
     def source() -> dict[str, Any]:

@@ -60,7 +60,10 @@ requires the private trusted gateway. Proposal/review writes additionally requir
 a verified `X-M365-Actor`; the gateway must derive it from actual Microsoft 365
 metadata, not trust a caller-supplied identity. No public API listener is required
 by the private-channel deployment. The local-only inference restriction remains
-in force; no hosted-model key discovery or paid inference fallback is added.
+the default; no hosted-model key discovery or paid inference fallback is added.
+The optional [NVIDIA model selector](nvidia-model-selection.md) adds a fixed-host,
+operator-approved connection, documented model cards and endpoint fit receipts.
+It never silently inherits upstream hosted defaults or changes the source graph.
 
 ## SharePoint and Teams
 

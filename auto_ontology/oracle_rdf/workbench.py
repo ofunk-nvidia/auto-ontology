@@ -192,11 +192,21 @@ class RdfWorkbench:
             raise RevisionConflict(
                 "Source changed; re-read before requesting a proposal"
             )
+        identity_method = getattr(self.inference, "identity", None)
+        selected = identity_method() if callable(identity_method) else None
+        if not isinstance(selected, dict):
+            selected = dict(
+                provider="local", model="local-qwen3-0.6b", selectionRevision=0
+            )
         for existing in self.proposals():
             value = existing["document"]
             if (
                 value["sourceSha256"] == expected_source
                 and value["resourceId"] == identity
+                and value.get("model") == selected["model"]
+                and value.get("provider", "local") == selected["provider"]
+                and value.get("modelSelectionRevision", 0)
+                == selected["selectionRevision"]
             ):
                 return dict(existing, reused=True)
         resource = self.resource(identity)
@@ -234,8 +244,16 @@ class RdfWorkbench:
             status="proposed",
             createdAt=utc_now(),
             createdBy=actor,
-            reason="Lokaler Modellvorschlag auf Grundlage der ausgewählten Quelle; fachlich zu prüfen.",
-            model="local-qwen3-0.6b",
+            reason="Modellvorschlag auf Grundlage der ausgewählten Quelle; fachlich zu prüfen.",
+            model=suggestion.get("model", selected["model"]),
+            provider=suggestion.get("provider", selected["provider"]),
+            modelSelectionRevision=suggestion.get(
+                "selectionRevision", selected["selectionRevision"]
+            ),
+            returnedModel=suggestion.get(
+                "returnedModel", suggestion.get("model", selected["model"])
+            ),
+            usage=suggestion.get("usage", {}),
             sourceApplied=False,
             decisions=[],
         )

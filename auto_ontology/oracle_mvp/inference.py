@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 import json
+import os
 
 from auto_ontology.oracle_mvp.settings import require_local_inference
 from auto_ontology.oracle_mvp.store import checked_vector
@@ -18,6 +19,14 @@ class LocalInference:
 
     def __init__(self) -> None:
         require_local_inference()
+
+    def identity(self) -> dict[str, Any]:
+        return dict(
+            provider="local",
+            model="local-qwen3-0.6b",
+            selectionRevision=0,
+            runtimeModel=os.environ.get("REASONING_MODEL", "unconfigured"),
+        )
 
     def embed(self, text: str, *, query: bool = False) -> list[float]:
         """Use the upstream embedding client and validate its actual dimensions."""

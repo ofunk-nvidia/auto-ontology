@@ -93,6 +93,24 @@ def test_proposal_keeps_exact_source_fields_and_reuses_unchanged_source():
     assert after["object"]["value"] == "Geprüfter künstlicher Entwurf"
 
 
+def test_changed_selected_model_creates_a_separate_source_bound_proposal():
+    app = workbench()
+    sha = app.snapshot().sha256
+    app.inference.identity.return_value = dict(
+        provider="synthetic-provider", model="synthetic-model-a", selectionRevision=1
+    )
+    first = app.propose("urn:example:item", sha, "synthetic-actor")
+    app.inference.identity.return_value = dict(
+        provider="synthetic-provider", model="synthetic-model-b", selectionRevision=2
+    )
+    second = app.propose("urn:example:item", sha, "synthetic-actor")
+    assert first["id"] != second["id"]
+    assert second["document"]["model"] == "synthetic-model-b"
+    assert second["document"]["modelSelectionRevision"] == 2
+    assert first["document"]["before"] == second["document"]["before"]
+    assert app.inference.propose.call_count == 2
+
+
 def test_review_persists_reason_actor_and_conflicts_with_repeat_decision():
     app = workbench()
     sha = app.snapshot().sha256

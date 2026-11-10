@@ -108,6 +108,12 @@ transfer secrets or install the original Next.js application.
 
 ## Acceptance
 
+An explicitly configured [NVIDIA model selector](nvidia-model-selection.md) can
+extend the RDF workflow with a fixed, approved OpenAI-compatible Hub connection.
+The local endpoint checks remain unchanged for local inference and embeddings.
+External calls require model-specific evidence of free use and current fit tests;
+the absence of this operator profile keeps the default local-only deployment.
+
 Unit tests cover malformed vectors, unsafe credentials, JSON integrity, stale
 revisions, rollback, unsupported caller fields, gateway authentication and the
 unapproved proposal invariant:

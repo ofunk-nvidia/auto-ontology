@@ -17,9 +17,10 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from auto_ontology.oracle_mvp.inference import LocalInference
+from auto_ontology.oracle_mvp.model_selection import ModelSelection, ModelUnavailable
 from auto_ontology.oracle_mvp.settings import OracleSettings, private_text
 from auto_ontology.oracle_mvp.store import OracleStore, RevisionConflict
 
@@ -34,6 +35,13 @@ class CatalogWrite(BaseModel):
     label: str = Field(min_length=1, max_length=200)
     description: str = Field(max_length=4000)
     source: dict[str, str | int] = Field(default_factory=dict, max_length=10)
+
+    @field_validator("id")
+    @classmethod
+    def protect_internal_records(cls, value: str) -> str:
+        if value.startswith("rdf-"):
+            raise ValueError("Internal RDF records require their governed operation")
+        return value
 
 
 class ProposalRequest(BaseModel):
@@ -59,6 +67,8 @@ def create_app(
             raise ValueError("An explicit operator Oracle configuration is required")
         store = OracleStore(OracleSettings.from_file(Path(path)))
     runtime = inference or LocalInference()
+    if inference is None:
+        runtime = ModelSelection.from_environment(store, runtime)
     if gateway_key is None:
         key_file = os.environ.get("AUTO_ONTOLOGY_ORACLE_GATEWAY_KEY_FILE")
         if not key_file:
@@ -115,7 +125,11 @@ def create_app(
     if rdf_workbench is not None:
         from auto_ontology.oracle_rdf.router import router_for
 
-        app.include_router(router_for(rdf_workbench))
+        app.include_router(
+            router_for(
+                rdf_workbench, runtime if isinstance(runtime, ModelSelection) else None
+            )
+        )
 
     @app.middleware("http")
     async def trusted_gateway(request: Request, call_next: Any) -> Any:
@@ -141,6 +155,19 @@ def create_app(
             status_code=422, content={"detail": "Invalid catalog or inference input"}
         )
 
+    @app.exception_handler(ModelUnavailable)
+    def model_unavailable(_request: Any, error: ModelUnavailable) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"code": "model_unavailable", "message": str(error)},
+        )
+
+    @app.exception_handler(PermissionError)
+    def forbidden(_request: Any, _error: PermissionError) -> JSONResponse:
+        return JSONResponse(
+            status_code=403, content={"detail": "Operator permission required"}
+        )
+
     @app.get("/api/health/live")
     def live() -> dict[str, Any]:
         """Liveness does not connect to any database or inference provider."""
@@ -164,6 +191,8 @@ def create_app(
             "optimisticRevisions": True,
             "nativeOracleVectorSearch": True,
             "localModelProposals": True,
+            "operatorModelSelection": rdf_workbench is not None
+            and isinstance(runtime, ModelSelection),
             "originalNextJsAuthentication": False,
             "fullUpstreamDalCompatibility": False,
             "arbitrarySqlExecution": False,

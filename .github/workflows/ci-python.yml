@@ -30,7 +30,7 @@ jobs:
       - name: Install the optional Oracle and RDF integrations
         run: uv sync --locked --extra oracle --extra rdf
       - name: Check isolated Oracle boundaries
-        run: uv run --no-sync pytest auto_ontology/oracle_mvp/tests/test_boundaries.py auto_ontology/oracle_rdf/tests -q
+        run: uv run --no-sync pytest auto_ontology/oracle_mvp/tests/test_boundaries.py auto_ontology/oracle_mvp/tests/test_model_selection.py auto_ontology/oracle_rdf/tests -q
 
   lint_and_format:
     name: Ruff Check & Format
