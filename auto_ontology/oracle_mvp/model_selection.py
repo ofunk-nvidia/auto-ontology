@@ -238,7 +238,9 @@ class ModelSelection:
         with self.lock:
             updated = json.loads(private_text(self.profile_path))
             if updated.get("baseUrl", BASE_URL) != BASE_URL:
-                raise ModelUnavailable("Nur der freigegebene NVIDIA-Endpunkt ist erlaubt.")
+                raise ModelUnavailable(
+                    "Nur der freigegebene NVIDIA-Endpunkt ist erlaubt."
+                )
             if updated != self.profile:
                 self.profile = updated
                 if isinstance(self.connection, HubConnection):

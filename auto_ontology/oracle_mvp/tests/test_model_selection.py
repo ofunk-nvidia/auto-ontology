@@ -106,7 +106,9 @@ def test_atomic_profile_rotation_invalidates_catalog_and_fit_without_restart(tmp
     app.test(MODEL, ACTOR)
     assert app._fresh_test(MODEL)
     path = tmp_path / "profile.json"
-    updated = dict(app.profile, id="rotated", costMode="blocked", costEvidence="", freeModelIds=[])
+    updated = dict(
+        app.profile, id="rotated", costMode="blocked", costEvidence="", freeModelIds=[]
+    )
     path.write_text(json.dumps(updated))
     path.chmod(0o600)
     app.profile_path = path
