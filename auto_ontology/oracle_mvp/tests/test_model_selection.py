@@ -152,6 +152,21 @@ def test_missing_key_has_no_demo_candidates_and_never_contacts_an_endpoint():
     assert not app.connection.calls
 
 
+def test_catalog_needs_only_the_key_even_when_generation_is_disabled():
+    app = manager()
+    app.profile.update(
+        useApproval="", costMode="blocked", costEvidence="", freeModelIds=[]
+    )
+    result = app.catalog(ACTOR)
+    assert result["state"] == "connected" and result["cards"]
+    assert not result["externalCallsAllowed"]
+    assert app.connection.calls == [("/models", None)]
+    assert "nvidia/embedding-only" in result["availableModels"]
+    assert "vendor/reasoning-but-undocumented" in result["availableModels"]
+    assert "https://evil.invalid/key" not in result["availableModels"]
+    assert not any(row["id"] == "nvidia/embedding-only" for row in result["cards"])
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

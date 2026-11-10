@@ -60,7 +60,7 @@ REQUIREMENTS = [
 # The actual deployment/model ID always comes from the authenticated catalog.
 FAMILIES = [
     {
-        "aliases": ["nvidia/nvidia-nemotron-nano-9b-v2"],
+        "aliases": ["nvidia/nvidia-nemotron-nano-9b-v2", "nvidia/nemotron-nano-9b-v2"],
         "name": "NVIDIA Nemotron Nano 9B v2",
         "summary": "Dokumentiertes Sprachmodell für Text, Reasoning und Werkzeugnutzung. Die Eignung des konkreten Gateways wird separat geprüft.",
         "reasoning": "Thinking-Modus dokumentiert; ein Reasoning-Etikett ersetzt keinen Funktionstest.",
@@ -103,8 +103,9 @@ FAMILIES = [
         "aliases": [
             "nvidia/nemotron-3.5-lightning-30b-a3b",
             "nvidia/nemotron-3-5-lightning-30b-a3b",
+            "nvidia/nemotron-3.5-lightning",
         ],
-        "name": "Nemotron 3.5 Lightning 30B A3B",
+        "name": "Nemotron 3.5 Lightning",
         "summary": "Im Auto-Ontology-Repository als Reasoning- und Arbeitsmodell vorgesehen.",
         "reasoning": "Dokumentiert; die tatsächliche Bereitstellung wird gesondert geprüft.",
         "context": "Vom konkreten Endpunkt abhängig; keine ungeprüfte Kontextgröße zugesichert.",
@@ -277,7 +278,7 @@ class ModelSelection:
         return dict(provider="local", model=LOCAL_ID, selectionRevision=0)
 
     def _models(self, refresh: bool = False) -> list[dict[str, Any]]:
-        if not self.profile.get("keyFile") or not self.profile.get("useApproval"):
+        if not self.profile.get("keyFile"):
             return []
         if (
             self.cached_models is None
@@ -291,7 +292,10 @@ class ModelSelection:
             self.cached_models = [
                 row
                 for row in rows
-                if isinstance(row, dict) and family_for(row.get("id"))
+                if isinstance(row, dict)
+                and isinstance(row.get("id"), str)
+                and MODEL_ID.fullmatch(row["id"])
+                and "://" not in row["id"]
             ]
             self.cached_at = time.monotonic()
         return self.cached_models
@@ -311,20 +315,18 @@ class ModelSelection:
     def catalog(self, actor: str) -> dict[str, Any]:
         self.refresh_profile()
         cards = []
+        rows: list[dict[str, Any]] = []
         message = "NVIDIA-Zugang noch nicht eingerichtet."
         state = "not-configured"
-        if self.profile.get("keyFile") and not self.profile.get("useApproval"):
-            message, state = (
-                "NVIDIA Use Request ist noch nicht nachgewiesen.",
-                "approval-required",
-            )
         try:
             rows = self._models()
-            if self.profile.get("keyFile") and self.profile.get("useApproval"):
+            if self.profile.get("keyFile"):
                 message, state = "NVIDIA-Modellkatalog geladen.", "connected"
             for row in rows:
                 model = row["id"]
                 family = family_for(model)
+                if family is None:
+                    continue
                 tested = self._fresh_test(model)
                 cards.append(
                     dict(
@@ -366,6 +368,7 @@ class ModelSelection:
             message=message,
             selected=selected,
             cards=cards,
+            availableModels=sorted({row["id"] for row in rows}),
             requirements=REQUIREMENTS,
             canConfigure=actor in self.profile.get("operatorActors", []),
             externalCallsAllowed=self.permitted(),
@@ -373,14 +376,13 @@ class ModelSelection:
             embedding=dict(model="all-minilm", dimensions=384, changed=False),
             reranking=dict(configured=False),
             filterExplanation="Nur im Zugang verfügbare, dokumentierte Textmodelle; Bild-, Sprach-, Embedding-, Reranking- und unbekannte Modelle sind ausgeschlossen. Aktivierbar erst nach bestandenem RDF-Funktionstest.",
-            useApprovalRequired=not bool(self.profile.get("useApproval")),
         )
 
     def _allowed(self, model: str) -> None:
         self.refresh_profile()
         if not self.permitted(model):
             raise ModelUnavailable(
-                "Externe Modellaufrufe warten auf Use Request und belegte Kostenfreiheit."
+                "Modellgenerierung ist für diese Verbindung noch deaktiviert. Der Modellkatalog kann unabhängig davon geladen werden."
             )
         if not family_for(model) or not any(
             row["id"] == model for row in self._models()

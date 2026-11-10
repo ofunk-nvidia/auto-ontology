@@ -56,7 +56,11 @@ user with mode 0600. Set `AUTO_ONTOLOGY_NVIDIA_PROFILE` to its path. Example:
 }
 ```
 
-This example intentionally cannot start external inference. Record the applicable
+The stored key is sufficient to authenticate and read `/models`. The catalog
+includes all returned model IDs; only documented text-model candidates receive
+RDF model cards. Catalog listing is independent of the generation controls below.
+
+This example intentionally cannot start external generation. Record the applicable
 provider/use approval, independently verify free use for the selected model IDs,
 and only then set `costMode` to `verified-free`, add `costEvidence` and the exact
 `freeModelIds`. Merely seeing a model in a catalog does not establish its price.
